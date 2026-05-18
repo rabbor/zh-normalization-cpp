@@ -1,0 +1,4 @@
+*.far
+*.la
+*.cmake
+*.pc

@@ -1,0 +1,25 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/whitelist.py::Whitelist.build_verbalizer()
+# - 白名单直接输出：name: "B to B" → B to B
+# - 儿化：erhua: "儿" 根据是否 remove_erhua 选择删除或保留。
+#   这里默认保留“儿”。若要删除，请把 erhua_keep 换成 u.D["儿"]。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'char.grm'    as ch;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+# 保留 "儿"
+erhua_keep = u.D["erhua:" s q] "儿" u.D[q s];
+# 若要删除 "儿"，改为：
+#   erhua_drop = u.D["erhua:" s q "儿" q s];
+
+# 白名单普通情况 —— 与 char/name 相同
+export WHITELIST = Optimize[ch.NAME | erhua_keep];

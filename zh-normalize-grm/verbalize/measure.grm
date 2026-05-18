@@ -1,0 +1,53 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/measure.py::Measure.build_verbalizer()
+# measure { cardinal { integer: "十" } units: "千克" }  → 十千克
+# 速率：measure { fraction { numerator: "十公里" denominator: "小时" } }  → 每小时十公里
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+integer     = u.D["integer:"     s q] value u.D[q s];
+units       = u.D["units:"       s q] value u.D[q s];
+numerator   = u.D["numerator:"   s q] value u.D[q s];
+denominator = u.D["denominator:" s q] value u.D[q s];
+
+card = u.D["cardinal" s "{" s] integer u.D["}" s];
+
+measure_simple =
+  u.D["measure" s "{" s]
+  card
+  units
+  u.D["}"]
+;
+
+# 速率：numerator 在前，denominator 在后
+measure_rate =
+  u.D["measure" s "{" s]
+  u.D["fraction" s "{" s]
+  numerator
+  u.I["每"]
+  denominator
+  u.D["}" s]
+  u.D["}"]
+;
+
+# 速率：denominator 在前，numerator 在后（处理全排列另一种序）
+measure_rate2 =
+  u.D["measure" s "{" s]
+  u.D["fraction" s "{" s]
+  u.I["每"]
+  denominator
+  numerator
+  u.D["}" s]
+  u.D["}"]
+;
+
+export MEASURE = Optimize[measure_simple | measure_rate | measure_rate2];

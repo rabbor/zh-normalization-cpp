@@ -1,0 +1,25 @@
+import 'byte.grm' as b;
+
+# 通用工具：
+# - I[...] 插入（"": expr），对应 pynini.pynutil.insert
+# - D[...] 删除（expr: ""），对应 pynini.pynutil.delete
+# - q 双引号（用于 proto 风格字段）
+# - s 任意空白（允许序列化后出现任意数量空白）
+
+func I[expr] {
+  return "" : expr;
+}
+
+func D[expr] {
+  return expr : "";
+}
+
+export q = "\"";
+
+export s = " "*;
+
+# 一个或多个空白
+export sp = " "+;
+
+# 全集（用于 CDRewrite 的 sigma 参数）
+export sigstar = b.kSigmaStar;

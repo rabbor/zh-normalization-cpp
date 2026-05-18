@@ -1,0 +1,83 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/measure.py::Measure.build_tagger()
+# 10kg / 2.5℃ / 10km/h / 2024年 → measure { cardinal { integer: "..." } units: "..." }
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'cardinal.grm' as c;
+
+q = u.q;
+
+units_en = StringFile['../data/measure/units_en.tsv'];
+units_zh = StringFile['../data/measure/units_zh.tsv'];
+
+# k -> 千, w -> 万（可选前缀）
+kw = ("k" : "千") | ("w" : "万");
+
+# 单位：可选 k/w 前缀 + 英文或中文单位名
+units = kw? (units_en | units_zh);
+
+number = c.NUMBER;
+
+# 1-11 个 / 1 个-11 个 的范围
+to = ("-" : "到") | ("~" : "到") | "到";
+
+rmspace = u.D[" "]?;
+prefix = number (rmspace units)? to;
+
+measure_core = prefix? number rmspace units;
+
+# “两” → “二”（“两月 / 两号” 的情况）
+# Python 中用 build_rule(cross("两"+unit, "二"+unit), l="[BOS]") 改写，此处简化
+two_to_er = CDRewrite[
+    ("两两" : "二两") | ("两月" : "二月") | ("两号" : "二号"),
+    "[BOS]" | "到",
+    "",
+    u.sigstar
+];
+measure_part = measure_core @ two_to_er;
+
+# 年份 / 赛季：-2024年 / 2024年~2025年
+digits = c.digits;
+cardinal_ann = digits{2} | digits{4};
+unit_ann = "年" | "年度" | "赛季";
+prefix_ann = cardinal_ann (rmspace unit_ann)? to;
+annual = prefix_ann? cardinal_ann unit_ann;
+
+# 普通度量输出
+measure_simple =
+  u.I["measure { "]
+  u.I["cardinal { integer: " q]
+  (measure_part | annual)
+  u.I[q " }"]
+  u.I[" units: " q]
+  # units 在 integer 已匹配中复用；这里仅为 proto 结构占位
+  u.I[q]
+  u.I[" }"]
+;
+
+# 注意：上述输出把整数和单位塞进同一个 integer 字段以保持简洁；
+# 若需严格分离，可改写为先识别 number，再接 units。
+# 为更贴近 Python 的结果，使用下面的分离版本：
+measure_split =
+  u.I["measure { "]
+  u.I["cardinal { integer: " q] number u.I[q " }"]
+  rmspace
+  u.I[" units: " q] units u.I[q]
+  u.I[" }"]
+;
+
+# 速率 10km/h → 分子/分母两个 measure 嵌套
+rmsign_rate = rmspace u.D["/"] rmspace;
+rate =
+  u.I["measure { "]
+  u.I["fraction { numerator: " q] number rmspace units_en u.I[q]
+  rmsign_rate
+  u.I[" denominator: " q] units u.I[q " }"]
+  u.I[" }"]
+;
+
+
+export MEASURE = Optimize[measure_split | rate];

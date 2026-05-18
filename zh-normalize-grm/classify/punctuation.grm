@@ -1,0 +1,36 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 标点符号处理：作为 Sparrowhawk 的 PUNCT token 插入停顿。
+# 中英文标点混合。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+medium =
+  u.I["tokens { name: \"[PUNCT]\" pause_length: "
+      "PAUSE_MEDIUM phrase_break: true type: PUNCT }"]
+;
+
+long =
+  u.I["tokens { name: \"[PUNCT]\" pause_length: "
+      "PAUSE_LONG phrase_break: true type: PUNCT }"]
+;
+
+# 中等停顿：逗号分号顿号等
+medium_punct =
+    "," | ";" | "(" | ")"
+  | "，" | "、" | "；" | "（" | "）"
+  | "：" | "\"" | "“" | "”" | "‘" | "’"
+;
+
+# 长停顿：句号感叹号问号
+long_punct =
+    "." | "!" | "?" | ":"
+  | "。" | "！" | "？"
+;
+
+export PUNCT = Optimize[
+   Replace["[ROOT][PUNCT]", medium, medium_punct]
+ | Replace["[ROOT][PUNCT]", long, long_punct]]
+;

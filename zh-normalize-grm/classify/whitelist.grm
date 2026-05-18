@@ -1,0 +1,22 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/whitelist.py::Whitelist.build_tagger()
+# B2B → B to B；儿（儿化音白名单标记）
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+
+whitelist1 = StringFile['../data/default/whitelist.tsv'];
+whitelist2 = StringFile['../data/erhua/whitelist.tsv'];
+whitelist = whitelist1 | whitelist2;
+
+# 儿化标记：消耗输入中的"儿"字符，权重低，优先匹配真实词
+erhua = u.I["name: " q] "儿" u.I[q] <0.1>;
+
+# 白名单正常替换：B2B → B to B
+wl = u.I["name: " q] whitelist u.I[q];
+
+export WHITELIST = Optimize[wl | erhua];

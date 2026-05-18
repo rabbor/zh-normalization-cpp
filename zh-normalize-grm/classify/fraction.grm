@@ -1,0 +1,24 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/fraction.py::Fraction.build_tagger()
+# 1/2 → fraction { numerator: "一" denominator: "二" }
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'cardinal.grm' as c;
+
+q = u.q;
+
+number = c.NUMBER;
+rmspace = u.D[" "]?;
+
+fraction =
+  u.I["fraction { "]
+  u.I["numerator: " q] number u.I[q]
+  rmspace u.D["/"] rmspace
+  u.I[" denominator: " q] number u.I[q]
+  u.I[" }"]
+;
+
+export FRACTION = Optimize[fraction];

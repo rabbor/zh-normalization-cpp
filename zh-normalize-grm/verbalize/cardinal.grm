@@ -1,0 +1,25 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/cardinal.py::Cardinal.build_verbalizer()
+# 把  cardinal { integer: "一百二十三" } 还原为 "一百二十三"
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+# 任意 UTF-8 字节序列（除引号）
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+cardinal =
+  u.D["cardinal" s "{" s]
+  u.D["integer:" s q]
+  value
+  u.D[q s]
+  u.D["}"]
+;
+
+export CARDINAL = Optimize[cardinal];

@@ -1,0 +1,54 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/date.py::Date.build_tagger()
+# 形如 2024/3/5、2024-03-05、05.03.2024、2024/03、03-2024、05/03 的日期
+# 输出 Sparrowhawk token：date { year: "YYYY年" month: "M月" day: "D日" preserve_order: true }
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+
+digit = StringFile['../data/number/digit.tsv'];
+zero  = StringFile['../data/number/zero.tsv'];
+
+# 4 位年份：首位必须是 1-9（不含 0 开头），后 3 位可以是 0-9
+yyyy = digit (digit | zero){3};
+
+m  = StringFile['../data/date/m.tsv'];    # 1..12  → 一月..十二月
+mm = StringFile['../data/date/mm.tsv'];   # 01..12 → 一月..十二月
+d  = StringFile['../data/date/d.tsv'];    # 1..31  → 一日..三十一日
+dd = StringFile['../data/date/dd.tsv'];   # 01..31 → 一日..三十一日
+
+# 分隔符 "/", "-", "." → 空格（token 字段之间的分隔）
+rmsign = (u.D["/"] | u.D["-"] | u.D["."]) u.I[" "];
+
+year  = u.I["year: " q]  yyyy    u.I["年" q];
+month = u.I["month: " q] (m | mm) u.I[q];
+day   = u.I["day: " q]   (d | dd) u.I[q];
+
+# 仅 0x 的月份（例如 2024/03）
+month_pad = u.I["month: " q] mm u.I[q];
+
+date_core =
+    (year  rmsign month     rmsign day)        # YYYY/M/D
+  | (day   rmsign month     rmsign year)       # D/M/YYYY
+  | (year  rmsign month_pad)                   # YYYY/MM
+  | (month_pad rmsign year)                    # MM/YYYY
+  | (month_pad rmsign day)                     # MM/DD
+;
+
+# preserve_order 保证按识别顺序输出
+date =
+  u.I["date { "]
+  date_core
+  u.I[" preserve_order: true"]
+  u.I[" }"]
+;
+
+# 可选：x到y 的范围形式
+# 原 Python 通过插入 ` char { value: "到" } ` 表示，这里简化为字面 “到”
+to = (u.D["-"] | u.D["~"]) u.I["到"];
+
+export DATE = Optimize[date (to date)?];

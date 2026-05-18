@@ -1,0 +1,38 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/date.py::Date.build_verbalizer()
+# 把  date { year: "..." month: "..." day: "..." preserve_order: true }
+# 还原为  year + month + day 的拼接（年/月/日可选）。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+# 三个字段（尾部空格一并删除，避免输出中出现多余空格）
+year  = u.D["year:"  s q] value u.D[q s];
+month = u.D["month:" s q] value u.D[q s];
+day   = u.D["day:"   s q] value u.D[q s];
+
+# preserve_order / field_order 去掉
+field         = (b.kAlpha | "_")+;
+preserve_order = "preserve_order:" s "true" s;
+field_order    = "field_order:" s q field q s;
+field_order_specs = (preserve_order | field_order)*;
+
+# 字段之间由 C++ TokenParser 已做重排，此处顺序固定为 year → month → day
+date =
+  u.D["date" s "{" s]
+  year?
+  month?
+  day?
+  u.D[field_order_specs s]?
+  u.D["}"]
+;
+
+export DATE = Optimize[date];

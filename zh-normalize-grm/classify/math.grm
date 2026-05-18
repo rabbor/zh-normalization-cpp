@@ -1,0 +1,31 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/math.py::Math.build_tagger()
+# 1+2=3 / 1:2 / 3>1 → verbatim { name: "一加二等于三" } （口语化结果）
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'cardinal.grm' as c;
+
+q = u.q;
+
+operator_file = StringFile['../data/math/operator.tsv'];  # × - + = ÷ ≥ ≤ >= <=
+
+symbols = ("~" : "到") | (":" : "比") | ("<" : "小于") | (">" : "大于");
+
+operator = operator_file | symbols;
+
+number = c.NUMBER;
+rmspace = u.D[" "]?;
+
+expr = number (rmspace operator rmspace number)+;
+
+# Math 在 Python 版中没有专属字段，这里包装为 verbatim name 字段
+math =
+  u.I["name: " q]
+  expr
+  u.I[q]
+;
+
+export MATH = Optimize[math];

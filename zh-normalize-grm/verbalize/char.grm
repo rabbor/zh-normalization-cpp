@@ -1,0 +1,22 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# math / sport / whitelist / char 这四类在 classify 阶段都输出为
+#   tokens { name: "..." }
+# 因此它们的 verbalize 规则相同：把 name 字段还原为字面文本。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+# 直接识别 tokens { name: "..." } 顶层情况
+# 注意：Sparrowhawk 在进入 verbalizer 之前会剥去 `tokens { }` 外层，
+# 留下 `name: "..."` 或具体 semiotic class 结构。这里针对前者。
+name_only = u.D["name:" s q] value u.D[q s];
+
+export NAME = Optimize[name_only];

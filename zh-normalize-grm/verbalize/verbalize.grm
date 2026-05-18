@@ -1,0 +1,47 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/normalizer.py::Normalizer.build_verbalizer()
+#
+# 流程对标 Python 第 76-97 行：
+#   1) 各子规则取并 → raw_verbalizer
+#   2) 加载 PostProcessor（默认：删感叹词 + 全角→半角）→ processor
+#   3) 串接 → (raw_verbalizer @ processor).star
+#
+# Sparrowhawk runtime 对每个 token 调用本 verbalizer 的 ALL 规则，
+# 因此 ALL 已内置 postprocessor，输出即为最终口语文本。
+
+import 'cardinal.grm'            as c;
+import 'date.grm'                as d;
+import 'time.grm'                as t;
+import 'money.grm'               as m;
+import 'measure.grm'             as M;
+import 'fraction.grm'            as f;
+import 'math.grm'                as Math;
+import 'sport.grm'               as sp;
+import 'whitelist.grm'           as w;
+import 'char.grm'                as ch;
+import 'postprocessor.grm'       as post;
+
+# ====== 原始 verbalizer（各 semiotic class 取并） ======
+raw = Optimize[
+    c.CARDINAL
+  | d.DATE
+  | t.TIME
+  | m.MONEY
+  | M.MEASURE
+  | f.FRACTION
+  | Math.MATH
+  | sp.SPORT
+  | w.WHITELIST
+  | ch.NAME
+];
+
+# ====== verbalizer + postprocessor 串接 ======
+# 对标 Python: self.verbalizer = (verbalizer @ processor).star
+# post.POSTPROCESS 默认 = del_blk @ to_half（删感叹词 + 全角→半角）
+# Sparrowhawk 会对每个 token 调用 ALL，postprocess 在每个 token 内部生效。
+export ALL = Optimize[raw @ post.POSTPROCESS];
+
+# 同时导出不加后处理的原始版本（调试用）
+export RAW = raw;

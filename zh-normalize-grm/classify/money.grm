@@ -1,0 +1,34 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/money.py::Money.build_tagger()
+# $100 / ¥12.5 / USD100 → money { amount { integer_part: "..." } currency: "..." }
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'cardinal.grm' as c;
+
+q = u.q;
+
+code   = StringFile['../data/money/code.tsv'];    # USD → 美元
+symbol = StringFile['../data/money/symbol.tsv'];  # $   → 美元
+
+# 币种（ISO 代码或符号）
+currency = code | symbol;
+
+# 复用 cardinal.NUMBER（含符号/百分之/小数等）
+number = c.NUMBER;
+
+money_core =
+  u.I["currency: " q] currency u.I[q]
+  u.D[" "]?
+  u.I[" amount { integer_part: " q] number u.I[q " }"]
+;
+
+money =
+  u.I["money { "]
+  money_core
+  u.I[" }"]
+;
+
+export MONEY = Optimize[money];

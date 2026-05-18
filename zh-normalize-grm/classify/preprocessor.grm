@@ -1,0 +1,16 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/preprocessor.py::PreProcessor
+# 繁体到简体转换，应用于输入文本（tokenize 之前）。
+# 由于 Sparrowhawk 的 tokenizer 是一次性编译的 FST，无法在 runtime
+# 通过 @ 操作符动态合成。这里导出 PREPROCESS，供 tokenize_and_classify.grm
+# 在正式 token 识别前先用 CDRewrite 做替换。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+traditional2simple = StringFile['../data/char/traditional_to_simple.tsv'];
+
+# 用 CDRewrite 在整句上替换所有繁体字 → 简体字
+export PREPROCESS = CDRewrite[traditional2simple, "", "", u.sigstar];

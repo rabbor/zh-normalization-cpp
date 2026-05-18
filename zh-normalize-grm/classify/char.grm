@@ -1,0 +1,48 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/char.py::Char.build_tagger()
+# 兜底规则（权重最高，成本最大）
+# Latin/数字/符号序列作为整体匹配，其余单字符匹配。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+
+# 需要在 proto 字符串值中转义的字符：
+# " (0x22) → \" 避免与字段引号冲突
+# \ (0x5C) → \\\ 避免被当作转义前缀
+escaped_quote = ("\"" : "\\\"");
+escaped_backslash = ("\\" : "\\\\");
+
+# 不需要转义的 UTF-8 字符（排除 " 和 \）
+safe_char = b.kUtf8Char - "\"" - "\\";
+
+# 单个字符：安全字符保持原样，特殊字符转义输出
+char_one = safe_char | escaped_quote | escaped_backslash;
+
+# --- Latin/ASCII 词级匹配 ---
+# 可组成"词"的 ASCII 字符：字母、数字、常见符号
+word_char = b.kAlpha | b.kDigit | "." | "_" | "@" | "#" | "-";
+
+# Latin 词：连续 word_char 作为整体（至少 1 个字符）
+latin_word =
+  u.I["name: " q]
+  word_char+
+  u.I[q]
+;
+
+# --- 非 Latin 单字符匹配 ---
+# safe_char 是 acceptor，可以做 Difference；排除 word_char 中的字符
+non_word_safe = safe_char - b.kAlpha - b.kDigit - "." - "_" - "@" - "#" - "-";
+# 非 word 的单字符：剩余 safe chars + escaped " 和 \（它们也不属于 word_char）
+non_word_char = non_word_safe | escaped_quote | escaped_backslash;
+single_char =
+  u.I["name: " q]
+  non_word_char
+  u.I[q]
+;
+
+# 权重在 tokenize_and_classify.grm 中统一添加
+export CHAR = Optimize[latin_word | single_char];

@@ -1,0 +1,28 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/fraction.py::Fraction.build_verbalizer()
+# fraction { denominator: "二" numerator: "一" } → 二分之一
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+numerator   = u.D["numerator:"   s q] value u.D[q s];
+denominator = u.D["denominator:" s q] value u.D[q s];
+
+# 经重排，字段顺序 denominator → numerator
+fraction =
+  u.D["fraction" s "{" s]
+  denominator
+  u.I["分之"]
+  numerator
+  u.D["}"]
+;
+
+export FRACTION = Optimize[fraction];

@@ -1,0 +1,38 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/time.py::Time.build_tagger()
+# 3:30、03:30:05 am 等 → time { hours: "三点" minutes: "三十分" seconds: "五秒" zone: "上午" }
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+
+h    = StringFile['../data/time/hour.tsv'];    # 0-24 → 零/一/两...点
+m    = StringFile['../data/time/minute.tsv'];  # 00-59 → ε/零一分/.../五十九分
+s    = StringFile['../data/time/second.tsv']; # 00-59 → ε/一秒.../五十九秒
+noon = StringFile['../data/time/noon.tsv'];   # am/pm/AM/PM → 上午/下午
+
+# 半/全角冒号
+colon = u.D[":"] | u.D["："];
+
+time_core =
+  u.I["hours: " q]   h u.I[q]
+  u.I[" "] colon
+  u.I[" minutes: " q] m u.I[q]
+  (colon u.I[" seconds: " q] s u.I[q])?
+  (u.D[" "]? u.I[" zone: " q] noon u.I[q])?
+;
+
+time =
+  u.I["time { "]
+  time_core
+  #u.I[" preserve_order: true"]
+  u.I[" }"]
+;
+
+# 范围 “3~5 点”
+to = (u.D["-"] | u.D["~"]) u.I["到"];
+
+export TIME = Optimize[time (to time)?];

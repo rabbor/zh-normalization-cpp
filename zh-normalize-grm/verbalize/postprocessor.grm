@@ -1,0 +1,61 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 与 tn/chinese/rules/postprocessor.py::PostProcessor 对齐，提供 4 个可组合的后处理：
+#   ① remove_interjections (默认 True)   → 删除黑名单字符
+#   ② remove_puncts       (默认 False)  → 删除中文 + ASCII 标点
+#   ③ full_to_half        (默认 True)   → 全角 → 半角
+#   ④ tag_oov             (默认 False)  → 将集外字标记为 oov { value: "..." }
+#
+# 每个特性导出独立的 CDRewrite FST，可按需组合。默认 POSTPROCESS = ① + ③（与 Python 默认一致）。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+# ----- ① 黑名单 -----
+blacklist  = StringFile['../data/default/blacklist.tsv'];   # 呃 / 啊 ...
+
+# 删除黑名单字符
+del_blk = CDRewrite[blacklist : "", "", "", u.sigstar];
+
+# ----- ② 标点删除 -----
+puncts_zh  = StringFile['../data/char/punctuations_zh.tsv'];  # 中文专用标点
+
+# 对标 Python: delete(puncts | self.PUNCT) → 中文标点 + ASCII 标点
+del_punct = CDRewrite[(puncts_zh | b.kPunct) : "", "", "", u.sigstar];
+
+# ----- ③ 全角 → 半角 -----
+full2half  = StringFile['../data/char/fullwidth_to_halfwidth.tsv'];
+
+to_half = CDRewrite[full2half, "", "", u.sigstar];
+
+# ----- ④ 标记集外字 (tag_oov) -----
+# 对标 Python: charset = zh_charset_std | zh_charset_ext | puncts | DIGIT | ALPHA | PUNCT | SPACE
+#              oov = difference(self.VCHAR, charset)
+#              processor @= Tagger("oov", oov, self.VSIGMA)._tagger
+zh_std = StringFile['../data/char/charset_national_standard_2013_8105.tsv'];
+zh_ext = StringFile['../data/char/charset_extension.tsv'];
+
+# 已知字符集
+known = zh_std | zh_ext | puncts_zh | b.kDigit | b.kAlpha | b.kPunct | b.kSpace;
+
+# 不在已知字符集中的字节 → 视为 OOV
+# 注意：Thrax 以字节为单位做差集（kBytes - known），因此一个多字节 UTF-8 字（如 emoji）
+# 的每个字节会被独立包裹。这是字节级差集的固有限制，
+# 在生产环境中建议用 C++ 逐字符后处理替代。
+oov_byte = b.kBytes - known;
+
+# 在 OOV 前插入 oov { value: "，在 OOV 后插入 " }
+# 两步 CDRewrite 串接效果为：  raw → oov { value: "raw" }
+go_oov_pre  = CDRewrite["" : "oov { value: \"", "", oov_byte, u.sigstar];
+go_oov_post = CDRewrite["" : "\" }", oov_byte, "", u.sigstar];
+tag_oov = Optimize[go_oov_pre @ go_oov_post];
+
+# ----- 导出 -----
+export DEL_BLACKLIST = del_blk;
+export DEL_PUNCT     = del_punct;
+export TO_HALFWIDTH  = to_half;
+export TAG_OOV       = tag_oov;
+
+# 默认组合
+export POSTPROCESS = Optimize[del_blk];

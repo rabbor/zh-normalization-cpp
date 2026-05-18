@@ -1,0 +1,66 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/time.py::Time.build_verbalizer()
+# time { hours: "三点" minutes: "三十分" seconds: "零五秒" zone: "上午" }
+# 经 TokenParser 重排后顺序：zone(noon) → hours → minutes → seconds
+
+#import 'byte.grm' as b;
+#import 'util.grm' as u;
+#
+#q = u.q;
+#s = u.s;
+#
+#not_quote = b.kBytes - "\"";
+#value     = not_quote*;
+#
+#hours   = u.D["hours:"   s q] value u.D[q s];
+#minutes = u.D["minutes:" s q] value u.D[q s];
+#seconds = u.D["seconds:" s q] value u.D[q s];
+#zone    = u.D["zone:"    s q] value u.D[q s];
+#
+#preserve_order = "preserve_order:" s "true" s;
+#
+#time =
+#  u.D["time" s "{" s]
+#  zone?
+#  hours
+#  minutes
+#  seconds?
+#  u.D[preserve_order]?
+#  u.D["}"]
+#;
+#
+#export TIME = Optimize[time];
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+hours   = u.D["hours:"   s q] value u.D[q s];
+minutes = u.D["minutes:" s q] value u.D[q s];
+seconds = u.D["seconds:" s q] value u.D[q s];
+zone    = u.D["zone:"    s q] value u.D[q s];
+
+# Sparrowhawk ProtobufSerializer 会将 preserve_order 序列化两次（已知行为），
+# 使用 Kleene star 处理零次或多次出现
+preserve_order = "preserve_order:" s "true" s;
+meta_specs = preserve_order*;
+
+time =
+  u.D["time" s "{" s]
+  zone?
+  hours
+  minutes
+  seconds?
+  u.D[s "}"]
+  # u.D[meta_specs s]?
+  # u.D["}"]
+;
+
+export TIME = Optimize[time];

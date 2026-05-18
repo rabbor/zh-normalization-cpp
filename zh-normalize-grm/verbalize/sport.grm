@@ -1,0 +1,4 @@
+# sport 规则的 verbalize 与 char 共享 name-only 处理
+import 'char.grm' as ch;
+
+export SPORT = ch.NAME;

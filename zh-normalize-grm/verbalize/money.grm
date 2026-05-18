@@ -1,0 +1,37 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/money.py::Money.build_verbalizer()
+# money { currency: "美元" amount { integer_part: "一百" } }
+# 经 TokenParser 重排后顺序：value(amount) → currency
+# 输出：一百美元
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+s = u.s;
+
+not_quote = b.kBytes - "\"";
+value     = not_quote*;
+
+integer_part    = u.D["integer_part:"    s q] value u.D[q s];
+fractional_part = u.D["fractional_part:" s q] value u.D[q s];
+currency        = u.D["currency:"        s q] value u.D[q s];
+
+amount =
+  u.D["amount" s "{" s]
+  integer_part
+  fractional_part?
+  u.D["}" s]
+;
+
+# 重排后字段顺序为 amount → currency
+money =
+  u.D["money" s "{" s]
+  amount
+  currency
+  u.D["}"]
+;
+
+export MONEY = Optimize[money];

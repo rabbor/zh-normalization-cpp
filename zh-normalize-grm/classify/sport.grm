@@ -1,0 +1,38 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/sport.py::Sport.build_tagger()
+# 中国 3:1 韩国 / AC米兰 2-0 国际米兰 等体育比分
+# 输出：name: "队伍 分数 比 分数"
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'cardinal.grm' as c;
+
+q = u.q;
+
+country = StringFile['../data/sport/country.tsv'];
+club    = StringFile['../data/sport/club.tsv'];
+team = country | club;
+
+rmspace = u.D[" "]?;
+
+# 只匹配阿拉伯数字，不使用 c.NUMBER（包含 percent、ip_like 等宽泛模式）
+digit = c.digits;
+int_num = digit+;
+
+# 比分分隔符 + "比" 的插入绑定为原子操作
+# 使用 cross(x, y) = x : y，删除分隔符并插入 "比"
+separator = (u.D[":"] u.I["比"]) | (u.D["-"] u.I["比"]) | (u.D["/"] u.I["比"]);
+
+# 比分：两侧是阿拉伯数字，中间是分隔符+比
+score = rmspace int_num separator int_num rmspace;
+
+# sport 不是 Sparrowhawk 的标准语义类 —— 将其组合为 `name` 字段
+sport =
+  u.I["name: " q]
+    team u.I[" "] score u.I[" "] (team)
+  u.I[q]
+;
+
+export SPORT = Optimize[sport];

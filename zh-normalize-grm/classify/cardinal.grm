@@ -1,0 +1,111 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/rules/cardinal.py::Cardinal.build_tagger()
+# 实现阿拉伯数字 → 中文基数（例如：12345 → 一万二千三百四十五）
+# 并输出 Sparrowhawk token：cardinal { integer: "..." }
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+
+q = u.q;
+
+# ----- 基础字符表（复用 data/*.tsv）-----
+zero  = StringFile['../data/number/zero.tsv'];   # 0  → 零
+digit = StringFile['../data/number/digit.tsv'];  # 1-9 → 一-九
+teen  = StringFile['../data/number/teen.tsv'];   # 1 → ε；2-9 → 二-九（用于 “11→十一”）
+sign  = StringFile['../data/number/sign.tsv'];   # +/-/± → 正/负/正负
+dot   = StringFile['../data/number/dot.tsv'];    # . → 点
+
+# ----- 工具 -----
+# 删除半角或全角 0（用于 “101 → 一百零一” 的占位）
+rmzero  = u.D["0"] | u.D["０"];
+# 删除千位分隔逗号（可选）
+rmpunct = u.D[","]?;
+
+export digits = Optimize[zero | digit];
+
+# ----- 十位 / 百位 / 千位 / 万位 -----
+
+# 11 → 十一（teen + 十 + digit/ε）
+ten = teen u.I["十"] (digit | rmzero);
+
+# 11 → 一十一（digit + 十 + digit/ε）
+tens = digit u.I["十"] (digit | rmzero);
+
+# 111 → 一百一十一；101 → 一百零一；100 → 一百
+hundred = digit u.I["百"] (tens | (zero digit) | rmzero{2});
+
+# 1111/1011/1001/1000
+thousand = digit u.I["千"] rmpunct
+           (hundred | (zero tens) | (rmzero zero digit) | rmzero{3});
+
+# 10001111/1001111/101111/11111/10111/10011/10001/10000
+ten_thousand =
+  (thousand | hundred | ten | digit)
+  u.I["万"]
+  (thousand
+   | (zero rmpunct hundred)
+   | (rmzero rmpunct zero tens)
+   | (rmzero rmpunct rmzero zero digit)
+   | rmzero{4});
+
+# ----- 数字主体 -----
+# 整数部分
+int_number = digits | ten | hundred | thousand | ten_thousand;
+
+# 符号 + 整数 + 小数
+number_plain = sign? int_number (dot digits+)?;
+
+# “二百/二千/二万” → “两百/两千/两万”（位于句首或词首时）
+two_rewrite = CDRewrite[
+    ("二百" : "两百") | ("二千" : "两千") | ("二万" : "两万"),
+    "[BOS]",
+    "",
+    u.sigstar
+];
+number = number_plain @ two_rewrite;
+
+# 百分之：1% → 百分之一
+percent = u.I["百分之"] number u.D["%"];
+
+# 约 / 人均 前缀
+approx = ("约")? ("人均")?;
+
+# number 供上层（fraction/math/measure/money 等）引用
+export NUMBER = Optimize[approx (number | percent)];
+
+# ----- 扩展：ID/IP、电话 -----
+
+# 127.0.0.1 之类的数字串（直接按数字逐位读）
+ip_like = digits+ (dot digits+){3};
+
+# xxxx-xxx-xxx
+dash_like = digits+ (u.D["-"] digits+){2};
+
+# xxx-xxxxxxxx
+phone_like = digits{3} u.D["-"] digits{8};
+
+# 3/5/11 位电话号码：把 “一” 读作 “幺”
+yao = CDRewrite[("一" : "幺"), "", "", u.sigstar];
+phone_digits = digits @ yao;
+phone = (phone_digits{3} | phone_digits{5} | phone_digits{11})
+      | ("尾号" ("是" | "为")? phone_digits{4});
+
+cardinal_all =
+    number
+  | percent
+  | ip_like
+  | dash_like
+  | phone_like
+  | (phone <-1.0>)  # 权重更低，优先匹配电话
+;
+
+# ----- 输出 Sparrowhawk Token：cardinal { integer: "..." } -----
+cardinal_markup =
+    u.I["cardinal { integer: " q]
+    cardinal_all
+    u.I[q " }"]
+;
+
+export CARDINAL = Optimize[cardinal_markup];

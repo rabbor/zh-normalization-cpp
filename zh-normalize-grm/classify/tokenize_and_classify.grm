@@ -1,0 +1,51 @@
+# Copyright (c) 2022 Zhendong Peng
+# Licensed under the Apache License, Version 2.0
+#
+# 对应 tn/chinese/normalizer.py::Normalizer.build_tagger()
+# 聚合所有 classify 子规则为 TOKENIZE_AND_CLASSIFY。
+# 使用 Kleene star 逐 token 匹配，与 Python (processor @ tagger).star 保持一致。
+
+import 'byte.grm' as b;
+import 'util.grm' as u;
+import 'preprocessor.grm'  as pp;
+import 'cardinal.grm'      as c;
+import 'date.grm'          as d;
+import 'time.grm'          as t;
+import 'money.grm'         as m;
+import 'measure.grm'       as M;
+import 'fraction.grm'      as f;
+import 'math.grm'          as Math;
+import 'sport.grm'         as sp;
+import 'whitelist.grm'     as w;
+import 'char.grm'          as ch;
+
+# 各 semiotic class（与 Python 加权顺序对应，数值越小优先级越高）
+types =
+    (d.DATE      <1.02>)
+  | (w.WHITELIST <1.03>)
+  | (sp.SPORT   <1.06>)
+  | (f.FRACTION <1.05>)
+  | (M.MEASURE  <1.05>)
+  | (m.MONEY    <1.05>)
+  | (t.TIME     <1.04>)
+  | (c.CARDINAL <1.06>)
+  | (Math.MATH  <90>)
+  | (ch.CHAR    <100>)
+;
+
+# 单个 token = tokens { <class> } + 尾部空格
+# 对应 Python: add_tokens() 中 insert(f"{self.name} {{ ") + tagger + insert(" } ")
+# 增加可选的空格删除（前导空格），避免输入中空格导致匹配失败
+token = u.I["tokens { "] (u.D[" "] | u.D["\t"] | u.D["\n"] | u.D["\r"])* types u.I[" } "];
+
+# Kleene star：逐 token 匹配整个输入
+# 对应 Python: (processor @ tagger).star
+tokenize_star = token*;
+
+
+# 删除末尾多余空格
+# 对应 Python: self.build_rule(delete(" "), r="[EOS]")
+delete_trailing_space = CDRewrite[(" " : ""), "", "[EOS]", u.sigstar];
+
+# 先做繁→简预处理，再逐 token 分类，最后清理末尾空格
+export TOKENIZE_AND_CLASSIFY = Optimize[(pp.PREPROCESS @ tokenize_star) @ delete_trailing_space];
